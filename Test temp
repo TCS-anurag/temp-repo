@@ -18,8 +18,7 @@ if (wheres.size() > 0) {
     querymmDetail.add('AND ' + String.join(wheres, ' AND '));
 }
 
-// Ordering by EndDate for the older details and MixMatch Code, StartDate for the newer details
-querymmDetail.add('ORDER BY CASE WHEN EndDate__c < TODAY THEN EndDate__c ELSE StartDate__c END DESC');
+// Limiting results to 1000
 querymmDetail.add('LIMIT 1000');
 String soql = String.join(querymmDetail, ' ');
 
