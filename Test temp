@@ -1,10 +1,6 @@
-Certainly! Here is a refactored version of the provided code. The refactoring aims to improve readability and maintainability while retaining the original logic:
-
-```apex
 List<String> querymmDetail = new List<String>();
-List<String> querymmDetail1 = new List<String>();
 
-// Query for new MixMatch details
+// Combined query for MixMatch details
 querymmDetail.add(
     'SELECT Id, Name, MixMatch__r.Name, StartDate__c, LastModifiedDate, MM_Num1__c, MM_Price1__c, ' +
     'MM_Num2__c, MM_Price2__c, MixMatch__c, MixMatch__r.MMCode__c, RegistrationNumber__c, ' +
@@ -13,7 +9,8 @@ querymmDetail.add(
     'FROM PLN_MixMatch_Detail__c ' +
     'WHERE MMCode__c <> null AND SetSale_UnConfirmedFlag__c = false AND ' +
     '((EndDate__c >= TODAY AND Linkflag__c = False AND MixMatch__r.Delete_flag__c = False) OR ' +
-    '(MixMatch__r.Delete_flag__c = TRUE AND MixMatch__r.IsDeletionLinked_MM__c = false AND EndDate__c >= TODAY AND Linkflag__c = False))'
+    '(MixMatch__r.Delete_flag__c = TRUE AND MixMatch__r.IsDeletionLinked_MM__c = false AND EndDate__c >= TODAY AND Linkflag__c = False) OR ' +
+    '(MixMatch__r.IsDeletionLinked_MM__c = false AND EndDate__c < TODAY AND Linkflag__c = False))'
 );
 
 // Adding additional WHERE clauses if present
@@ -21,34 +18,27 @@ if (wheres.size() > 0) {
     querymmDetail.add('AND ' + String.join(wheres, ' AND '));
 }
 
-// Limiting results to 1000
+// Ordering by EndDate for the older details and MixMatch Code, StartDate for the newer details
+querymmDetail.add('ORDER BY CASE WHEN EndDate__c < TODAY THEN EndDate__c ELSE StartDate__c END DESC');
 querymmDetail.add('LIMIT 1000');
 String soql = String.join(querymmDetail, ' ');
-List<PLN_MixMatch_Detail__c> newMMDetailList = Database.query(soql);
 
-// Query for latest MixMatch details
-querymmDetail1.add(
-    'SELECT Id, Name, MixMatch__r.Name, StartDate__c, LastModifiedDate, MM_Num1__c, MM_Price1__c, ' +
-    'MM_Num2__c, MM_Price2__c, MixMatch__c, MixMatch__r.MMCode__c, RegistrationNumber__c, ' +
-    'NumberOfTargetStores__c, SetSale_UnConfirmedFlag__c, Index__c, ' +
-    '(SELECT Id FROM TargetStores__r LIMIT 1) ' +
-    'FROM PLN_MixMatch_Detail__c ' +
-    'WHERE MMCode__c <> null AND SetSale_UnConfirmedFlag__c = false AND ' +
-    '(MixMatch__r.IsDeletionLinked_MM__c = false AND EndDate__c < TODAY AND Linkflag__c = False)'
-);
+// Execute the combined query
+List<PLN_MixMatch_Detail__c> allMMDetailList = Database.query(soql);
 
-// Adding additional WHERE clauses if present
-if (wheres.size() > 0) {
-    querymmDetail1.add('AND ' + String.join(wheres, ' AND '));
+// Separate the results into new and old MixMatch details
+List<PLN_MixMatch_Detail__c> newMMDetailList = new List<PLN_MixMatch_Detail__c>();
+List<PLN_MixMatch_Detail__c> latestMMdetail = new List<PLN_MixMatch_Detail__c>();
+
+for (PLN_MixMatch_Detail__c mmDetail : allMMDetailList) {
+    if (mmDetail.EndDate__c < Date.today()) {
+        latestMMdetail.add(mmDetail);
+    } else {
+        newMMDetailList.add(mmDetail);
+    }
 }
 
-// Ordering by EndDate and limiting results to 1000
-querymmDetail1.add('ORDER BY EndDate__c DESC');
-querymmDetail1.add('LIMIT 1000');
-String soql1 = String.join(querymmDetail1, ' ');
-List<PLN_MixMatch_Detail__c> latestMMdetail = Database.query(soql1);
-
-// Creating a map of MixMatch details by MixMatch__c
+// Creating a map of MixMatch details by MixMatch__c for the latest details
 Map<String, PLN_MixMatch_Detail__c> mapOfmmCodeMMdetail = new Map<String, PLN_MixMatch_Detail__c>();
 for (PLN_MixMatch_Detail__c mmDetail : latestMMdetail) {
     if (!mapOfmmCodeMMdetail.containsKey(mmDetail.MixMatch__c)) {
@@ -65,13 +55,3 @@ for (PLN_MixMatch_Detail__c mmDetail : newMMDetailList) {
 if (!mapOfmmCodeMMdetail.values().isEmpty()) {
     newMMDetailList.addAll(mapOfmmCodeMMdetail.values());
 }
-```
-
-Key changes and improvements:
-- Split long SOQL queries into multiple lines for better readability.
-- Used string interpolation for clarity in the queries.
-- Combined repeated code for adding WHERE clauses and limits.
-- Simplified the creation of `mapOfmmCodeMMdetail` and its processing.
-- Added comments to clarify the purpose of each major code section.
-
-This refactored code should be easier to read and maintain while still performing the same operations as the original code.
